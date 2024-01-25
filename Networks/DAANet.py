@@ -89,7 +89,7 @@ class DAA(nn.Module):
     def run_loss(self, ages, labels, accuracy_threshold):
         
         loss={}
-        loss['smooth_l1_loss'] = self._smooth_l1_loss(ages, labels.float()) 
+        loss['smooth_l1_loss'] = self._smooth_l1_loss(ages, labels.float ())
                             
         #ages = (ages+0.5).long().float()
         age_diff = torch.abs(ages - labels.float())
@@ -106,9 +106,6 @@ class DAA(nn.Module):
         
         template_labels = torch.arange(self.num_classes).view(1,-1).to(x)
         template_x      =  None
-        if self.da_type =='image_template':
-            template_labels = run_info['template_labels'].view(1,-1)
-            template_x = self.face_encoder(run_info['template_images'])      
         
         da_feats = self.da_operation(x, template_x)      
         b1, b2, c, h, w = da_feats.size()
@@ -130,7 +127,7 @@ class DAA(nn.Module):
 
 
 if __name__ == '__main__':
-    net_info = {'backbone':'resnet18','num_classes':100,'feat_dim':32, 'da_type':'binary'}
+    net_info = {'backbone':'resnet18','num_classes':230,'feat_dim':32, 'da_type':'binary'}
     
     net = DAA(net_info)
     print('Total params: %.2fM' % (sum(p.numel() for p in net.parameters())/1000000.0))

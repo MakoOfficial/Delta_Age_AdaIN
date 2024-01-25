@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 
 
 class DataSetFactory:
-    def __init__(self,config):
+    def __init__(self, config):
         self.config = config
         if self.config.data_folder[-1]!='/':
             self.config.data_folder = self.config.data_folder + '/'
@@ -29,11 +29,11 @@ class DataSetFactory:
         shape = (self.config.input_size, self.config.input_size)
         
         val_transform = transforms.Compose([
-            transforms.Resize(shape),
+            # transforms.Resize(shape),
             transforms.ToTensor(),
             ]) 
         train_transform = transforms.Compose([            
-            transforms.Resize(shape),    
+            # transforms.Resize(shape),
             transforms.RandomGrayscale(0.1),
             transforms.ColorJitter(brightness=0.5, contrast=0.5, hue=0.5),
             #transforms.RandomRotation(degrees=(20)),
@@ -42,35 +42,7 @@ class DataSetFactory:
             ]) 
 
         train_transform = train_transform if self.config.do_aug else val_transform
-        
-        
-        if self.config.da_type=="image_template":
-            if os.path.exists(self.config.image_template_path):
-                info = np.load(self.config.image_template_path)
-                images = info['rgb']
-                labels = info['labels']
-                self.template_images = torch.tensor(images)
-                self.template_labels = torch.tensor(labels)
-            else:
-                select_idxs = samples['select_idxs']
-                #print(select_idxs)
-                labels, images = [],[]
-                for select in select_idxs:
-                    label, idx = select
-                    image_fn = samples['training'][idx]['image']
-                    rgb = Image.open(image_fn).convert('RGB')
-                    rgb = val_transform(rgb)[None,...]
-                    labels.append(label)
-                    images.append(rgb)
-                labels = np.array(labels)
-                images = torch.cat(images, 0).numpy()
-                image_template_path = '{}{}'.format(self.config.data_folder, self.config.datanames.replace(',','_'))
-                np.savez_compressed(image_template_path, rgb=images, labels = labels)
-                print('image_template path is: ', image_template_path)
-                self.template_images = torch.tensor(images)
-                self.template_labels = torch.tensor(labels)
-            
-        
+
         self.training = DataSet(transform=train_transform, samples=samples['training'], type_='training', resize_shape=self.config.input_size)
         self.testing = DataSet(transform=val_transform, samples=samples['testing'], type_='testing', resize_shape=self.config.input_size)
         
@@ -93,33 +65,45 @@ class DataSetFactory:
         samples={}
         samples['training'] = []
         samples['testing'] = []
-        age_samples=[[] for k in range(self.config.num_classes)]
-        for name in self.config.datanames.split(','):
+        age_samples = [[] for k in range(self.config.num_classes)]
         
-            filename = self.config.data_folder + name + '/' + name + '.csv'
-           
-            with open(filename, 'r') as csvin:
-                data = csv.reader(csvin)
-                next(data)
-                for row in data:
-                    age=int(float(row[0])+0.5)
-                    if age < 0 or age>100 or name=='imdb_wiki' and (age < 6 or age>90):
-                        continue
-                    age = max(age, self.config.min_age)
-                    age = min(age, self.config.max_age)
-                    age = age - self.config.min_age
-                    sample={'gt_age':age}
-                    
-                    #row[2]: data path
-                    image_fn =  row[1]
-                    sample['image'] = image_fn if self.config.data_folder in image_fn else self.config.data_folder + image_fn
-                    kk = row[2] #['training' or 'testing']
-                    samples[kk].append(sample)
-                    if kk=='training':
-                        age_samples[age].append(len(samples[kk])-1)
-        
-        if self.config.da_type=="image_template" and not os.path.exists(self.config.image_template_path):
-            samples['select_idxs'] = self.random_choose_template(age_samples)
+        filename = self.config.data_folder + 'train.csv'
+
+        with open(filename, 'r') as csvin:
+            data = csv.reader(csvin)
+            next(data)
+            for row in data:
+                age=int(float(row[1])+0.5)
+                if age < 0 or age > 230:
+                    continue
+                age = age - self.config.min_age
+                sample={'gt_age':age}
+
+                #row[2]: data path
+                image_fn = f"{int(row[0])}.png"
+                sample['image'] = os.path.join(self.config.data_folder, 'train', image_fn)
+                kk = 'training'
+                samples[kk].append(sample)
+                if kk=='training':
+                    age_samples[age].append(len(samples[kk])-1)
+
+        valid = self.config.data_folder + 'valid.csv'
+
+        with open(valid, 'r') as csvin:
+            data = csv.reader(csvin)
+            next(data)
+            for row in data:
+                age = int(float(row[1]) + 0.5)
+                if age < 0 or age > 230:
+                    continue
+                age = age - self.config.min_age
+                sample = {'gt_age': age}
+
+                # row[2]: data path
+                image_fn = f"{int(row[0])}.png"
+                sample['image'] = os.path.join(self.config.data_folder, 'valid', image_fn)
+                kk = 'testing'
+                samples[kk].append(sample)
 
         for k in range(self.config.num_classes):
             print(k,len(age_samples[k]))
@@ -157,9 +141,10 @@ class DataSet(torch.utils.data.Dataset):
         sample = self.samples[index]
         image_fn = sample['image']
         labels={}
-        rgb = Image.open(image_fn).convert('RGB')
-        
-        rgb = self.crop_and_resize_data(rgb)
+        # rgb = Image.open(image_fn).convert('RGB')
+        rgb = cv2.imread(image_fn, cv2.IMREAD_COLOR)
+        rgb = Image.fromarray(rgb.astype(np.uint8))
+        # rgb = self.crop_and_resize_data(rgb)
         rgbs = self.transform(rgb)
         
         #print(sample.keys())

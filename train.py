@@ -84,14 +84,6 @@ class DAATrainer(object):
         self.val_loader   = DataLoader(factory.testing, batch_size=self.batch_size, shuffle=True, 
                                            num_workers=self.config.num_works//2, drop_last=True)
         self.val_iter     = iter(self.val_loader)
-        
-        if self.config.da_type=='image_template':
-            self.template_images = factory.template_images.to(self.device).float()
-            self.template_labels = factory.template_labels.to(self.device).float()
-            if self.config.use_multiple_gpu:
-                self.template_images = self.template_images.repeat(len(self.config.device_ids), 1, 1, 1)
-                self.template_labels = self.template_labels.repeat(len(self.config.device_ids))
-
 
     def build_model(self):
         net_info = {
@@ -185,7 +177,7 @@ class DAATrainer(object):
         print('train begin,total step is %d, total epochs is %d'%(self.max_iter_step-self.step,self.epochs-pre_epoch))
         for epoch in range(pre_epoch,self.epochs+1):
             self.train_epoch(epoch)
-            if epoch % 5 == 0:
+            if epoch % 50 == 0:
                 self.save_model(epoch)
 
     def run(self, images, labels, mode='train'):
@@ -198,9 +190,6 @@ class DAATrainer(object):
         run_info['labels'] = labels['gt_age']
         run_info['mode'] = mode
         run_info['accuracy_threshold'] = self.config.accuracy_threshold
-        if self.config.da_type=='image_template':
-            run_info['template_images'] = self.template_images
-            run_info['template_labels'] = self.template_labels
             
         outputs = self.model(images, run_info)
         if mode.lower()!='test':

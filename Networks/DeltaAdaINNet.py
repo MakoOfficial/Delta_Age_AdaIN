@@ -57,28 +57,23 @@ class DeltaAdaIN(nn.Module):
         super(DeltaAdaIN,self).__init__()
         self.num_classes = num_classes
         self.da_type = da_type
-        
-        if self.da_type!='image_template':
-            self.latents = self.create_latents()
-            self.mean_std_encoder = nn.Sequential(
-                nn.Linear(self.latents.size(-1), 16),
-                nn.ReLU(),
-                nn.Linear(16, 32),
-                nn.ReLU(),
-                nn.Linear(32, 2))
+
+        self.latents = self.create_latents()
+        self.mean_std_encoder = nn.Sequential(
+            nn.Linear(self.latents.size(-1), 16),
+            nn.ReLU(),
+            nn.Linear(16, 32),
+            nn.ReLU(),
+            nn.Linear(32, 2))
         
         
     
     def create_latents(self):
         latents = []
-        if self.da_type == 'binary':
-            for i in range(self.num_classes):
-                latents.append([int(x) for x in bin(i+1)[2:].zfill(8)])
-            latents = torch.tensor(latents, requires_grad = False).view(self.num_classes,-1).float()
-            latents =  F.normalize(latents, dim=-1)
-        else:
-            latents = [i+1 for i in range(self.num_classes)]
-            latents = torch.tensor(latents, requires_grad = False).view(self.num_classes,-1).float()
+        for i in range(self.num_classes):
+            latents.append([int(x) for x in bin(i+1)[2:].zfill(8)])
+        latents = torch.tensor(latents, requires_grad = False).view(self.num_classes,-1).float()
+        latents =  F.normalize(latents, dim=-1)
         return latents
 
     def calc_mean_std(self, feat, eps=1e-8):
